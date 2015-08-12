@@ -104,4 +104,4 @@ public:
 
 } // namespace Raspberry
 
-#endif RASPBERRY_HPP
+#endif // RASPBERRY_HPP
