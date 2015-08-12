@@ -10,7 +10,9 @@ Take a look at this basic inheritance example:
 ```C++
 struct Animal {
     virtual void speak() = 0;
+    virtual ~Animal() = 0;
 };
+inline Animal::~Animal() = default;
 
 struct Cat final : Animal {
     virtual void speak() override {
@@ -24,8 +26,9 @@ struct Dog final : Animal {
     }
 };
 
-void listen(Animal& animal) {
-    animal.speak();
+void listen() {
+    std::unique_ptr<Animal> animal = std::make_unique<Cat>();
+    animal->speak();
 }
 ```
 
@@ -48,7 +51,8 @@ struct Dog {
     }
 };
 
-void listen(Animal& animal) {
+void listen() {
+    Animal animal = Dog{};
     animal.speak();
 }
 ```
