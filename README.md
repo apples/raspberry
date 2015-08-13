@@ -20,12 +20,6 @@ struct Cat final : Animal {
     }
 };
 
-struct Dog final : Animal {
-    virtual void speak() override {
-        std::cout << "Arf!" << std::endl;
-    }
-};
-
 void listen() {
     std::unique_ptr<Animal> animal = std::make_unique<Cat>();
     animal->speak();
@@ -37,7 +31,7 @@ And the equivalent type erasure using Raspberry:
 ```C++
 DECL_ERASURE_MEMBER_CONCEPT(SpeakConcept, speak);
 
-using Animal = Raspberry::Any<SpeakConcept<void()>>;
+using Animal = raspberry::Any<SpeakConcept<void()>>;
 
 struct Cat {
     void speak() {
@@ -45,14 +39,8 @@ struct Cat {
     }
 };
 
-struct Dog {
-    void speak() {
-        std::cout << "Arf!" << std::endl;
-    }
-};
-
 void listen() {
-    Animal animal = Dog{};
+    Animal animal = Cat{};
     animal.speak();
 }
 ```
