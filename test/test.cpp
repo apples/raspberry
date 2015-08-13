@@ -49,3 +49,13 @@ TEST_CASE("Objects are copied by default", "[raspberry]") {
     REQUIRE(rd.value == 0);
 }
 
+TEST_CASE("std::reference_wrapper is used to capture by reference", "[raspberry]") {
+    RefDetector rd;
+    REQUIRE(rd.value == 0);
+
+    AnyRefDetector ard = std::ref(rd);
+    REQUIRE(rd.value == 0);
+
+    ard.ref_detect(42);
+    REQUIRE(rd.value == 42);
+}

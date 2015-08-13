@@ -84,6 +84,13 @@ class Any final : public Concepts::template NonVirtual<Any<Concepts...>>... {
         T& get_value() { return *this; }
     };
 
+    template <typename T>
+    struct AnyImpl<T&,false> final : BeamInheritance_t<AnyImpl_BeamConf<AnyImpl<T&>>, Concepts...> {
+        T& value;
+        AnyImpl(T& value) : value(value) {}
+        T& get_value() { return value; }
+    };
+
     std::unique_ptr<AnyImplBase> impl_ptr;
 
 public:
@@ -92,6 +99,10 @@ public:
 
     template <typename T>
     Any(T&& t) : impl_ptr(std::make_unique<AnyImpl<std::remove_reference_t<T>>>(std::forward<T>(t)))
+    {}
+
+    template <typename T>
+    Any(std::reference_wrapper<T>&& t) : impl_ptr(std::make_unique<AnyImpl<T&>>(t.get()))
     {}
 
     const std::unique_ptr<AnyImplBase>& get_ptr() const {
