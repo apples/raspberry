@@ -7,7 +7,7 @@
 DECL_ERASURE_MEMBER_CONCEPT(FuncConcept, func);
 DECL_ERASURE_MEMBER_CONCEPT(SquareConcept, square);
 
-using AnyFunc = Raspberry::Any<FuncConcept<int()>,SquareConcept<float(float)>>;
+using AnyFunc = raspberry::Any<FuncConcept<int()>,SquareConcept<float(float)>>;
 
 struct SomeFunc {
     int func() {
@@ -40,7 +40,7 @@ TEST_CASE("Any cannot be stored in Any or copied", "[raspberry]") {
 
 DECL_ERASURE_MEMBER_CONCEPT(RefDetectConcept, ref_detect);
 
-using AnyRefDetector = Raspberry::Any<RefDetectConcept<void(int)>>;
+using AnyRefDetector = raspberry::Any<RefDetectConcept<void(int)>>;
 
 struct RefDetector {
     int value = 0;

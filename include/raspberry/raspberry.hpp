@@ -9,6 +9,11 @@ template <typename Func> \
 struct ConceptName; \
 template <typename R, typename... Args> \
 struct ConceptName<R(Args...)> { \
+private: \
+    template <typename...> \
+    friend class raspberry::_detail::Any; \
+    template <typename> \
+    friend class raspberry::_detail::MagicMirror; \
     template <typename Base> \
     struct Virtual : Base { \
         virtual R FuncName(Args...) = 0; \
@@ -28,26 +33,34 @@ struct ConceptName<R(Args...)> { \
     }; \
 }
 
-namespace Raspberry {
+namespace raspberry {
 
-template <typename, typename...>
+namespace _detail {
+
+template<typename, typename...>
 struct BeamInheritance;
 
-template <typename Conf, typename... Types>
+template<typename Conf, typename... Types>
 using BeamInheritance_t = typename BeamInheritance<Conf, Types...>::type;
 
-template <typename Conf>
+template<typename Conf>
 struct BeamInheritance<Conf> {
     using type = typename Conf::Base;
 };
 
-template <typename Conf, typename HeadConcept, typename... TailConcepts>
+template<typename Conf, typename HeadConcept, typename... TailConcepts>
 struct BeamInheritance<Conf, HeadConcept, TailConcepts...> {
     using type = typename Conf::template Link<HeadConcept, BeamInheritance_t<Conf, TailConcepts...>>;
 };
 
+template <typename Concept>
+struct MagicMirror {
+    template <typename T>
+    using type = typename Concept::template NonVirtual<T>;
+};
+
 template <typename... Concepts>
-class Any final : public Concepts::template NonVirtual<Any<Concepts...>>... {
+class Any final : public MagicMirror<Concepts>::template type<Any<Concepts...>>... {
 
     struct AnyImplBase_BeamConf {
         using Base = struct {};
@@ -109,6 +122,10 @@ public:
         return impl_ptr;
     }
 };
+
+} // namespace _detail
+
+using _detail::Any;
 
 } // namespace Raspberry
 
