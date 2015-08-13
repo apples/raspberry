@@ -29,7 +29,7 @@ void listen() {
 And the equivalent type erasure using Raspberry:
 
 ```C++
-DECL_ERASURE_MEMBER_CONCEPT(SpeakConcept, speak);
+RASPBERRY_DECL_MEMBER(SpeakConcept, speak);
 
 using Animal = raspberry::Any<SpeakConcept<void()>>;
 
