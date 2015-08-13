@@ -54,52 +54,49 @@ class Any final : public Concepts::template NonVirtual<Any<Concepts...>>... {
         template <typename Concept, typename Next>
         using Link = typename Concept::template Virtual<Next>;
     };
-    
+
     struct AnyImplBase : BeamInheritance_t<AnyImplBase_BeamConf, Concepts...> {
         virtual ~AnyImplBase() = default;
     };
-    
+
     template <typename AnyImpl>
     struct AnyImpl_BeamConf {
         using Base = AnyImplBase;
         template <typename Concept, typename Next>
         using Link = typename Concept::template VirtualImpl<AnyImpl, Next>;
     };
-	
+
     template <typename T, bool B = std::is_empty<T>::value>
     struct AnyImpl;
-	
+
     template <typename T>
     struct AnyImpl<T,false> final : BeamInheritance_t<AnyImpl_BeamConf<AnyImpl<T>>, Concepts...> {
-		T value;
+        T value;
         AnyImpl(const T& value) : value(value) {}
         AnyImpl(T&& value) : value(std::move(value)) {}
-		T& get_value() { return value; }
+        T& get_value() { return value; }
     };
-    
+
     template <typename T>
     struct AnyImpl<T,true> final : T, BeamInheritance_t<AnyImpl_BeamConf<AnyImpl<T>>, Concepts...> {
         AnyImpl(const T& value) : T(value) {}
         AnyImpl(T&& value) : T(std::move(value)) {}
-		T& get_value() { return *this; }
+        T& get_value() { return *this; }
     };
-    
+
     std::unique_ptr<AnyImplBase> impl_ptr;
-    
+
 public:
-    
+
     Any() = default;
-    
+
     template <typename T>
-    Any(T&& t) : impl_ptr(std::make_unique<AnyImpl<T>>(std::forward<T>(t)))
+    Any(T&& t) : impl_ptr(std::make_unique<AnyImpl<std::remove_reference_t<T>>>(std::forward<T>(t)))
     {}
-    
+
     const std::unique_ptr<AnyImplBase>& get_ptr() const {
         return impl_ptr;
     }
-    
-	template <typename T>
-	using nope = AnyImpl<T>;
 };
 
 } // namespace Raspberry

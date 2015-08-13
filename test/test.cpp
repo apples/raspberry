@@ -25,3 +25,27 @@ TEST_CASE("Objects can be stored in Any", "[raspberry]") {
     REQUIRE(f.func() == 42);
     REQUIRE(f.square(12) == 144);
 }
+
+DECL_ERASURE_MEMBER_CONCEPT(RefDetectConcept, ref_detect);
+
+using AnyRefDetector = Raspberry::Any<RefDetectConcept<void(int)>>;
+
+struct RefDetector {
+    int value = 0;
+
+    void ref_detect(int x) {
+        value = x;
+    }
+};
+
+TEST_CASE("Objects are copied by default", "[raspberry]") {
+    RefDetector rd;
+    REQUIRE(rd.value == 0);
+
+    AnyRefDetector ard = rd;
+    REQUIRE(rd.value == 0);
+
+    ard.ref_detect(42);
+    REQUIRE(rd.value == 0);
+}
+
