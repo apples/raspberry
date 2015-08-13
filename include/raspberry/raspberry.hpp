@@ -31,6 +31,31 @@ private: \
             return static_cast<Impl&>(*this).get_ptr()->FuncName(std::forward<A>(args)...); \
         } \
     }; \
+};\
+template <typename R, typename... Args> \
+struct ConceptName<R(Args...)const> { \
+private: \
+    template <typename...> \
+    friend class raspberry::_detail::Any; \
+    template <typename> \
+    friend class raspberry::_detail::MagicMirror; \
+    template <typename Base> \
+    struct Virtual : Base { \
+        virtual R FuncName(Args...) const = 0; \
+    }; \
+    template <typename Impl, typename Base> \
+    struct VirtualImpl : Base { \
+        virtual R FuncName(Args... args) const override final { \
+            return static_cast<const Impl&>(*this).get_value().FuncName(args...); \
+        } \
+    }; \
+    template <typename Impl> \
+    struct NonVirtual { \
+        template <typename... A> \
+        R FuncName(A&&... args) const { \
+            return static_cast<const Impl&>(*this).get_ptr()->FuncName(std::forward<A>(args)...); \
+        } \
+    }; \
 }
 
 namespace raspberry {
@@ -87,6 +112,7 @@ class Any final : public MagicMirror<Concepts>::template type<Any<Concepts...>>.
         T value;
         AnyImpl(const T& value) : value(value) {}
         AnyImpl(T&& value) : value(std::move(value)) {}
+        const T& get_value() const { return value; }
         T& get_value() { return value; }
     };
 
@@ -94,6 +120,7 @@ class Any final : public MagicMirror<Concepts>::template type<Any<Concepts...>>.
     struct AnyImpl<T,true> final : T, BeamInheritance_t<AnyImpl_BeamConf<AnyImpl<T>>, Concepts...> {
         AnyImpl(const T& value) : T(value) {}
         AnyImpl(T&& value) : T(std::move(value)) {}
+        const T& get_value() const { return *this; }
         T& get_value() { return *this; }
     };
 
@@ -101,6 +128,7 @@ class Any final : public MagicMirror<Concepts>::template type<Any<Concepts...>>.
     struct AnyImpl<T&,false> final : BeamInheritance_t<AnyImpl_BeamConf<AnyImpl<T&>>, Concepts...> {
         T& value;
         AnyImpl(T& value) : value(value) {}
+        const T& get_value() const { return value; }
         T& get_value() { return value; }
     };
 

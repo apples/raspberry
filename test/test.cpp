@@ -7,10 +7,10 @@
 DECL_ERASURE_MEMBER_CONCEPT(FuncConcept, func);
 DECL_ERASURE_MEMBER_CONCEPT(SquareConcept, square);
 
-using AnyFunc = raspberry::Any<FuncConcept<int()>,SquareConcept<float(float)>>;
+using AnyFunc = raspberry::Any<FuncConcept<int()const>,SquareConcept<float(float)>>;
 
 struct SomeFunc {
-    int func() {
+    int func() const {
         return 42;
     }
 
