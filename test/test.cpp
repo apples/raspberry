@@ -26,6 +26,18 @@ TEST_CASE("Objects can be stored in Any", "[raspberry]") {
     REQUIRE(f.square(12) == 144);
 }
 
+struct negative_test_assign {
+    template <typename AF>
+    static decltype( AF(std::declval<const AF&>()), bool{} ) test(int) { return false; }
+
+    template <typename AF>
+    static bool test(long) { return true; }
+};
+
+TEST_CASE("Any cannot be stored in Any or copied", "[raspberry]") {
+    REQUIRE(negative_test_assign::test<AnyFunc>(int{}));
+}
+
 DECL_ERASURE_MEMBER_CONCEPT(RefDetectConcept, ref_detect);
 
 using AnyRefDetector = Raspberry::Any<RefDetectConcept<void(int)>>;
