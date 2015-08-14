@@ -4,6 +4,8 @@
 
 #include <raspberry/raspberry.hpp>
 
+#include <string>
+
 RASPBERRY_DECL_METHOD(FuncConcept, func);
 RASPBERRY_DECL_METHOD(SquareConcept, square);
 
@@ -71,3 +73,83 @@ TEST_CASE("std::reference_wrapper is used to capture by reference", "[raspberry]
     ard.ref_detect(42);
     REQUIRE(rd.value == 42);
 }
+
+RASPBERRY_DECL_METHOD(SetStringConcept, set_string);
+
+using AnySetString = raspberry::Any<
+        SetStringConcept< void(const std::string&) >,
+        SetStringConcept< void(const char*) >
+>;
+
+struct StringSetter {
+    std::string value;
+
+    void set_string(const std::string& s) {
+        value = s;
+    }
+
+    void set_string(const char* s) {
+        value = s;
+    }
+};
+
+TEST_CASE("Methods can be overloaded", "[raspberry]") {
+    StringSetter s;
+    AnySetString a = std::ref(s);
+
+    a.set_string("char[]");
+    REQUIRE(s.value == "char[]");
+
+    a.set_string(std::string("std::string"));
+    REQUIRE(s.value == "std::string");
+
+}
+
+RASPBERRY_DECL_METHOD(MaybeConstGetter, get);
+
+using AnyMaybeConstGetter = raspberry::Any<
+        MaybeConstGetter< int&() >,
+        MaybeConstGetter< const int&() const >
+>;
+
+struct SomeMaybeConstGetter {
+    int value;
+    int& get() { return value; }
+    const int& get() const { return value; }
+};
+
+TEST_CASE("Const and non-const overloads can coexist", "[raspberry]") {
+    SomeMaybeConstGetter s;
+    AnyMaybeConstGetter a = std::ref(s);
+
+    s.value = 7;
+    REQUIRE(s.value == 7);
+
+    a.get() = 42;
+    REQUIRE(s.value == 42);
+
+    const auto& ac = a;
+    REQUIRE(ac.get() == 42);
+    REQUIRE(std::is_const<std::remove_reference_t<decltype(ac.get())>>::value);
+}
+
+using AnyMaybeConstGetterReversed = raspberry::Any<
+        MaybeConstGetter< const int&() const >,
+        MaybeConstGetter< int&() >
+>;
+
+TEST_CASE("Const and non-const overloads can come in any order", "[raspberry]") {
+    SomeMaybeConstGetter s;
+    AnyMaybeConstGetterReversed a = std::ref(s);
+
+    s.value = 7;
+    REQUIRE(s.value == 7);
+
+    a.get() = 42;
+    REQUIRE(s.value == 42);
+
+    const auto& ac = a;
+    REQUIRE(ac.get() == 42);
+    REQUIRE(std::is_const<std::remove_reference_t<decltype(ac.get())>>::value);
+}
+
