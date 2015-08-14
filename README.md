@@ -29,7 +29,7 @@ void listen() {
 And the equivalent example using Raspberry:
 
 ```C++
-RASPBERRY_DECL_MEMBER(SpeakConcept, speak);
+RASPBERRY_DECL_METHOD(SpeakConcept, speak);
 
 using Animal = raspberry::Any<SpeakConcept<void()>>;
 
@@ -64,7 +64,7 @@ Right now, Raspberry only supports class method concepts.
 They are declared like this:
 
 ```C++
-RASPBERRY_DECL_MEMBER(FuncConcept, func);
+RASPBERRY_DECL_METHOD(FuncConcept, func);
 ```
 
 Declaring Erasure Types
@@ -77,7 +77,7 @@ This is, of course, useless.
 We can use previously declared Raspberry concepts to add methods to our `Any`:
 
 ```C++
-RASPBERRY_DECL_MEMBER(FuncConcept, func);
+RASPBERRY_DECL_METHOD(FuncConcept, func);
 
 using AnyFunc = raspberry::Any< FuncConcept<void()> >;
 ```
@@ -92,7 +92,7 @@ Any class type that contains the required methods can be converted into an `Any`
 If a class type is missing any of the required methods, compilation will fail.
 
 ```C++
-RASPBERRY_DECL_MEMBER(FuncConcept, func);
+RASPBERRY_DECL_METHOD(FuncConcept, func);
 
 using AnyFunc = raspberry::Any< FuncConcept<void()> >;
 
@@ -138,8 +138,8 @@ Multiple Concepts, Const-qualifiers, and Overloading
 `Any` supports any number of concepts, including zero. Methods may be `const`, and may be overloaded.
 
 ```C++
-RASPBERRY_DECL_MEMBER(GetStringConcept, get_string);
-RASPBERRY_DECL_MEMBER(SetStringConcept, set_string);
+RASPBERRY_DECL_METHOD(GetStringConcept, get_string);
+RASPBERRY_DECL_METHOD(SetStringConcept, set_string);
 
 using AnyStringHolder = raspberry::Any<
         GetStringConcept<const std::string&() const>,

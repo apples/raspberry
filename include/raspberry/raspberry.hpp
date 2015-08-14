@@ -4,7 +4,7 @@
 #include <memory>
 #include <utility>
 
-#define RASPBERRY_DECL_MEMBER(ConceptName, FuncName) \
+#define RASPBERRY_DECL_METHOD(ConceptName, FuncName) \
 template <typename Func> \
 struct ConceptName; \
 template <typename R, typename... Args> \

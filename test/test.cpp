@@ -4,8 +4,8 @@
 
 #include <raspberry/raspberry.hpp>
 
-RASPBERRY_DECL_MEMBER(FuncConcept, func);
-RASPBERRY_DECL_MEMBER(SquareConcept, square);
+RASPBERRY_DECL_METHOD(FuncConcept, func);
+RASPBERRY_DECL_METHOD(SquareConcept, square);
 
 using AnyFunc = raspberry::Any<FuncConcept<int()const>,SquareConcept<float(float)>>;
 
@@ -38,7 +38,7 @@ TEST_CASE("Any cannot be stored in Any or copied", "[raspberry]") {
     REQUIRE(negative_test_assign::test<AnyFunc>(int{}));
 }
 
-RASPBERRY_DECL_MEMBER(RefDetectConcept, ref_detect);
+RASPBERRY_DECL_METHOD(RefDetectConcept, ref_detect);
 
 using AnyRefDetector = raspberry::Any<RefDetectConcept<void(int)>>;
 
