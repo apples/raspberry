@@ -177,8 +177,9 @@ struct SomeConversionTester {
 
 TEST_CASE("Method return values follow implicit conversion through concepts", "[raspberry]") {
     SomeConversionTester s;
-    REQUIRE(s.test(7.42) == 7.42);
+    double d = 7.42;
+    REQUIRE(s.test(d) == 7.42);
 
     AnyConversionTester a = s;
-    REQUIRE(a.test(7.42) == 7);
+    REQUIRE(a.test(d) == 7);
 }

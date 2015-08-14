@@ -26,19 +26,19 @@ private: \
     template <typename Impl, typename Base> \
     struct VirtualImpl : Base { \
         virtual R FuncName(Args... args) override final { \
-            return static_cast<Impl&>(*this).get_value().FuncName(args...); \
+            return static_cast<Impl&>(*this).get_value().FuncName(std::forward<Args>(args)...); \
         } \
     }; \
     template <typename Impl, typename Next, typename Ancestor> \
     struct NonVirtual : Next { \
         using Next::FuncName; \
-        R FuncName(Args&&... args) { \
+        R FuncName(Args... args) { \
             return static_cast<Impl&>(*this).get_ptr()->FuncName(std::forward<Args>(args)...); \
         } \
     }; \
     template <typename Impl, typename Next> \
     struct NonVirtual<Impl,Next,void> : Next { \
-        R FuncName(Args&&... args) { \
+        R FuncName(Args... args) { \
             return static_cast<Impl&>(*this).get_ptr()->FuncName(std::forward<Args>(args)...); \
         } \
     }; \
@@ -62,19 +62,19 @@ private: \
     template <typename Impl, typename Base> \
     struct VirtualImpl : Base { \
         virtual R FuncName(Args... args) const override final { \
-            return static_cast<const Impl&>(*this).get_value().FuncName(args...); \
+            return static_cast<const Impl&>(*this).get_value().FuncName(std::forward<Args>(args)...); \
         } \
     }; \
     template <typename Impl, typename Next, typename Ancestor> \
     struct NonVirtual : Next { \
         using Next::FuncName; \
-        R FuncName(Args&&... args) const { \
+        R FuncName(Args... args) const { \
             return static_cast<const Impl&>(*this).get_ptr()->FuncName(std::forward<Args>(args)...); \
         } \
     }; \
     template <typename Impl, typename Next> \
     struct NonVirtual<Impl,Next,void> : Next { \
-        R FuncName(Args&&... args) const { \
+        R FuncName(Args... args) const { \
             return static_cast<const Impl&>(*this).get_ptr()->FuncName(std::forward<Args>(args)...); \
         } \
     }; \
