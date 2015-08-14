@@ -135,7 +135,10 @@ int main() {
 Multiple Concepts, Const-qualifiers, and Overloading
 ---
 
-`Any` supports any number of concepts, including zero. Methods may be `const`, and may be overloaded.
+`Any` supports any number of concepts, including zero.
+Methods may be `const`, and may be overloaded.
+
+As expected, `const` methods may be called on a non-const object.
 
 ```C++
 RASPBERRY_DECL_METHOD(GetStringConcept, get_string);
@@ -147,6 +150,33 @@ using AnyStringHolder = raspberry::Any<
         SetStringConcept<void(const char*)>
 >;
 ```
+
+Method Return Value Implicit Conversions
+---
+
+The return type specified in a concept may be different from the erased method's actual return type,
+only if the actual return type can be implicitly converted to the concept's return type.
+
+```C++
+RASPBERRY_DECL_METHOD(IdentityConcept, identity);
+
+using AnyIdentity = raspberry::Any< IdentityConcept<int(double)> >;
+
+struct SomeIdentity {
+    double identity(double d) { return d; }
+};
+
+void test() {
+    SomeIdentity s;
+    assert( s.identity(7.42) == 7.42 );
+    
+    AnyIdentity a = s;
+    
+    assert( a.identity(7.42) == 7 );
+}
+```
+
+Please be careful with this feature, as it can lead to data loss (e.g. casting a `double` to an `int`).
 
 License
 ===

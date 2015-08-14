@@ -166,3 +166,19 @@ TEST_CASE("Const methods can be called from non-const concepts", "[raspberry]") 
     ac.c_func();
     REQUIRE(true);
 }
+
+RASPBERRY_DECL_METHOD(ConversionTester, test);
+
+using AnyConversionTester = raspberry::Any< ConversionTester< int(double) > >;
+
+struct SomeConversionTester {
+    double test(double d) const { return d; }
+};
+
+TEST_CASE("Method return values follow implicit conversion through concepts", "[raspberry]") {
+    SomeConversionTester s;
+    REQUIRE(s.test(7.42) == 7.42);
+
+    AnyConversionTester a = s;
+    REQUIRE(a.test(7.42) == 7);
+}
