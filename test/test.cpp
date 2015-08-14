@@ -153,3 +153,16 @@ TEST_CASE("Const and non-const overloads can come in any order", "[raspberry]") 
     REQUIRE(std::is_const<std::remove_reference_t<decltype(ac.get())>>::value);
 }
 
+RASPBERRY_DECL_METHOD(ConstTester, c_func);
+
+using AnyConstTester = raspberry::Any< ConstTester< void() > >;
+
+struct SomeConstTester {
+    void c_func() const {}
+};
+
+TEST_CASE("Const methods can be called from non-const concepts", "[raspberry]") {
+    AnyConstTester ac = SomeConstTester{};
+    ac.c_func();
+    REQUIRE(true);
+}
