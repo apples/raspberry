@@ -1,5 +1,4 @@
 
-#define CATCH_CONFIG_MAIN
 #include "catch.hpp"
 
 #include <raspberry/raspberry.hpp>
@@ -183,3 +182,4 @@ TEST_CASE("Method return values follow implicit conversion through concepts", "[
     AnyConversionTester a = s;
     REQUIRE(a.test(d) == 7);
 }
+
