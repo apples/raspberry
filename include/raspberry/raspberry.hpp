@@ -197,6 +197,10 @@ public:
     const AnyImplBase* get_ptr() const {
         return impl_ptr.get();
     }
+
+    explicit operator bool() const {
+        return bool(impl_ptr);
+    }
 };
 
 } // namespace _detail
