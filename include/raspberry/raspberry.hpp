@@ -183,7 +183,7 @@ public:
     Any() = default;
 
     template <typename T>
-    Any(T&& t) : impl_ptr(std::make_unique<AnyImpl<std::remove_reference_t<T>>>(std::forward<T>(t)))
+    Any(T&& t) : impl_ptr(std::make_unique<AnyImpl<std::decay_t<T>>>(std::forward<T>(t)))
     {}
 
     template <typename T>
