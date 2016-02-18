@@ -11,7 +11,7 @@ template <typename R, typename... Args> \
 struct ConceptName<R(Args...)> { \
 private: \
     template <typename...> \
-    friend class raspberry::_detail::Any; \
+    friend class raspberry::_detail::RecAny; \
     template <typename> \
     friend class raspberry::_detail::Any_BeamConf; \
     template <typename Next, typename Ancestor> \
@@ -47,7 +47,7 @@ template <typename R, typename... Args> \
 struct ConceptName<R(Args...)const> { \
 private: \
     template <typename...> \
-    friend class raspberry::_detail::Any; \
+    friend class raspberry::_detail::RecAny; \
     template <typename> \
     friend class raspberry::_detail::Any_BeamConf; \
     template <typename Next, typename Ancestor> \
@@ -129,7 +129,7 @@ struct Any_BeamConf {
 };
 
 template <typename... Concepts>
-class Any final : public BeamInheritance_t<Any_BeamConf<Any<Concepts...>>, Concepts...> {
+class RecAny : public BeamInheritance_t<Any_BeamConf<RecAny<Concepts...>>, Concepts...> {
 
     struct AnyImplBase_BeamConf {
         using Base = struct {};
@@ -180,14 +180,14 @@ class Any final : public BeamInheritance_t<Any_BeamConf<Any<Concepts...>>, Conce
 
 public:
 
-    Any() = default;
+    RecAny() = default;
 
     template <typename T>
-    Any(T&& t) : impl_ptr(std::make_unique<AnyImpl<std::decay_t<T>>>(std::forward<T>(t)))
+    RecAny(T&& t) : impl_ptr(std::make_unique<AnyImpl<std::decay_t<T>>>(std::forward<T>(t)))
     {}
 
     template <typename T>
-    Any(std::reference_wrapper<T>&& t) : impl_ptr(std::make_unique<AnyImpl<T&>>(t.get()))
+    RecAny(std::reference_wrapper<T>&& t) : impl_ptr(std::make_unique<AnyImpl<T&>>(t.get()))
     {}
 
     AnyImplBase* get_ptr() {
@@ -203,8 +203,16 @@ public:
     }
 };
 
-} // namespace _detail
+template <typename... Concepts>
+class Any final : public RecAny<Concepts...> {
+    using RecAny<Concepts...>::RecAny;
+    using RecAny<Concepts...>::get_ptr;
+    using RecAny<Concepts...>::operator bool;
+};
 
+}; // namespace _detail
+
+using _detail::RecAny;
 using _detail::Any;
 
 } // namespace Raspberry
