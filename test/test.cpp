@@ -183,3 +183,39 @@ TEST_CASE("Method return values follow implicit conversion through concepts", "[
     REQUIRE(a.test(d) == 7);
 }
 
+struct RecAnyFunc final : raspberry::RecAny<
+    FuncConcept<int(RecAnyFunc&)>
+> { using RecAny::RecAny; };
+
+struct RecAnyTester {
+    int x;
+    int func(RecAnyFunc&) { return x; }
+};
+
+TEST_CASE("RecAny can be used for recursive CRTP", "[raspberry]") {
+    RecAnyFunc rat = RecAnyTester{7};
+    REQUIRE(rat.func(rat) == 7);
+
+    rat = RecAnyTester{42};
+    REQUIRE(rat.func(rat) == 42);
+
+    RecAnyFunc rat2 = std::move(rat);
+    rat = RecAnyTester{13};
+    REQUIRE(rat.func(rat) == 13);
+    REQUIRE(rat2.func(rat2) == 42);
+};
+
+struct RecAnyFuncValue final : raspberry::RecAny<
+    FuncConcept<int(RecAnyFuncValue)>
+> { using RecAny::RecAny; };
+
+struct RecAnyValueTester {
+    int x;
+    int func(RecAnyFuncValue) { return x; }
+};
+
+TEST_CASE("RecAny concepts can accept RecAny value types", "[raspberry]") {
+    RecAnyFuncValue rat1 = RecAnyValueTester{7};
+    RecAnyFuncValue rat2 = RecAnyValueTester{42};
+    REQUIRE(rat1.func(std::move(rat2)) == 7);
+};
