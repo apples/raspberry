@@ -183,9 +183,9 @@ TEST_CASE("Method return values follow implicit conversion through concepts", "[
     REQUIRE(a.test(d) == 7);
 }
 
-struct RecAnyFunc final : raspberry::RecAny<
+struct RecAnyFunc final : raspberry::Any<
     FuncConcept<int(RecAnyFunc&)>
-> { using RecAny::RecAny; };
+> { using Any::Any; };
 
 struct RecAnyTester {
     int x;
@@ -205,9 +205,9 @@ TEST_CASE("RecAny can be used for recursive CRTP", "[raspberry]") {
     REQUIRE(rat2.func(rat2) == 42);
 };
 
-struct RecAnyFuncValue final : raspberry::RecAny<
+struct RecAnyFuncValue final : raspberry::Any<
     FuncConcept<int(RecAnyFuncValue)>
-> { using RecAny::RecAny; };
+> { using Any::Any; };
 
 struct RecAnyValueTester {
     int x;

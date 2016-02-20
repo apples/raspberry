@@ -204,7 +204,7 @@ public:
 };
 
 template <typename... Concepts>
-class Any final : public RecAny<Concepts...> {
+class Any : public RecAny<Concepts...> {
     using RecAny<Concepts...>::RecAny;
     using RecAny<Concepts...>::get_ptr;
     using RecAny<Concepts...>::operator bool;
@@ -212,7 +212,6 @@ class Any final : public RecAny<Concepts...> {
 
 }; // namespace _detail
 
-using _detail::RecAny;
 using _detail::Any;
 
 } // namespace Raspberry
