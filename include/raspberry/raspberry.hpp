@@ -10,8 +10,8 @@ struct ConceptName; \
 template <typename R, typename... Args> \
 struct ConceptName<R(Args...)> { \
 private: \
-    template <typename...> \
-    friend class raspberry::_detail::RecAny; \
+    template <typename> \
+    friend class raspberry::_detail::BaseAny; \
     template <typename> \
     friend class raspberry::_detail::Any_BeamConf; \
     template <typename Next, typename Ancestor> \
@@ -46,8 +46,8 @@ private: \
 template <typename R, typename... Args> \
 struct ConceptName<R(Args...)const> { \
 private: \
-    template <typename...> \
-    friend class raspberry::_detail::RecAny; \
+    template <typename> \
+    friend class raspberry::_detail::BaseAny; \
     template <typename> \
     friend class raspberry::_detail::Any_BeamConf; \
     template <typename Next, typename Ancestor> \
@@ -84,25 +84,36 @@ namespace raspberry {
 
 namespace _detail {
 
-template<typename, typename...>
+/// A simple list of types.
+template <typename...>
+struct TypeList {};
+
+template<typename, typename, typename>
 struct BeamInheritance;
 
-template<typename Conf, typename... Types>
-using BeamInheritance_t = typename BeamInheritance<Conf, Types...>::type;
+/// Converts multiple inheritance into a chain of single inheritance (to avoid arithmetic on `this` pointer).
+/// `Conf::Base` is the leaf base class.
+/// `Conf::Link<H, B, T...>` is invoked using mutual recursion.
+/// - `H` is the current element in `Types...`
+/// - `B` is the current base class that `Link` must inherit from (it will either be the next `Link` or `Base`)
+/// - `T...` is a list of the remaining elements of `Types...`
+template<typename Conf, typename Types, typename SuperConf = Conf>
+using BeamInheritance_t = typename BeamInheritance<Conf, Types, SuperConf>::type;
 
-template<typename Conf>
-struct BeamInheritance<Conf> {
+template<typename Conf, typename SuperConf>
+struct BeamInheritance<Conf, TypeList<>, SuperConf> {
     using type = typename Conf::Base;
 };
 
-template<typename Conf, typename HeadConcept, typename... TailConcepts>
-struct BeamInheritance<Conf, HeadConcept, TailConcepts...> {
-    using type = typename Conf::template Link<HeadConcept, BeamInheritance_t<Conf, TailConcepts...>, TailConcepts...>;
+template<typename Conf, typename HeadConcept, typename... TailConcepts, typename SuperConf>
+struct BeamInheritance<Conf, TypeList<HeadConcept, TailConcepts...>, SuperConf> {
+    using type = typename Conf::template Link<HeadConcept, BeamInheritance_t<SuperConf, TypeList<TailConcepts...>>, TailConcepts...>;
 };
 
 template <typename, typename...>
 struct FindOverloadOrVoid;
 
+/// Given T = C<X>, searches Us for C<Y> and returns it, else returns void.
 template <typename T, typename... Us>
 using FindOverloadOrVoid_t = typename FindOverloadOrVoid<T,Us...>::type;
 
@@ -121,23 +132,60 @@ struct FindOverloadOrVoid<C<T>,C<U>,Vs...> {
     using type = C<U>;
 };
 
+template <typename, typename>
+struct InheritAll;
+
+/// Inherits from each `Config::Base<T>` for each `T` in `Types`.
+template <typename Config, typename Types>
+using InheritAll_t = typename InheritAll<Config,Types>::type;
+
+template <typename Config, typename... Ts>
+struct InheritAll<Config, TypeList<Ts...>> {
+    struct type : Config::template Base<Ts>... {};
+};
+
+template <typename Config>
+class BaseAny;
+
+template <typename Any>
+struct GetConfig;
+
+/// Given a `BaseAny<Config>`, returns `Config`.
+template <typename Any>
+using GetConfig_t = typename GetConfig<Any>::type;
+
+template <typename Config>
+struct GetConfig<BaseAny<Config>> {
+    using type = Config;
+};
+
 template <typename Any>
 struct Any_BeamConf {
-    using Base = struct{};
+    struct BaseConfig {
+        template <typename SuperAny>
+        using Base = BeamInheritance_t<Any_BeamConf, typename GetConfig_t<SuperAny>::Concepts, Any_BeamConf<SuperAny>>;
+    };
+    using Base = InheritAll_t<BaseConfig, typename GetConfig_t<Any>::Bases>;
     template <typename Concept, typename Next, typename... TailConcepts>
     using Link = typename Concept::template NonVirtual<Any,Next,FindOverloadOrVoid_t<Concept,TailConcepts...>>;
 };
 
-template <typename... Concepts>
-class RecAny : public BeamInheritance_t<Any_BeamConf<RecAny<Concepts...>>, Concepts...> {
+template <typename Config>
+class BaseAny : public BeamInheritance_t<Any_BeamConf<BaseAny<Config>>, typename Config::Concepts> {
+    template <typename>
+    friend class BaseAny;
 
     struct AnyImplBase_BeamConf {
-        using Base = struct {};
+        struct BaseConfig {
+            template <typename Any>
+            using Base = typename Any::AnyImplBase;
+        };
+        using Base = InheritAll_t<BaseConfig, typename Config::Bases>;
         template <typename Concept, typename Next, typename... TailConcepts>
         using Link = typename Concept::template Virtual<Next,FindOverloadOrVoid_t<Concept,TailConcepts...>>;
     };
 
-    struct AnyImplBase : BeamInheritance_t<AnyImplBase_BeamConf, Concepts...> {
+    struct AnyImplBase : BeamInheritance_t<AnyImplBase_BeamConf, typename Config::Concepts> {
         virtual ~AnyImplBase() = default;
     };
 
@@ -152,7 +200,7 @@ class RecAny : public BeamInheritance_t<Any_BeamConf<RecAny<Concepts...>>, Conce
     struct AnyImpl;
 
     template <typename T>
-    struct AnyImpl<T,false> final : BeamInheritance_t<AnyImpl_BeamConf<AnyImpl<T>>, Concepts...> {
+    struct AnyImpl<T,false> final : BeamInheritance_t<AnyImpl_BeamConf<AnyImpl<T>>, typename Config::AllConcepts> {
         T value;
         AnyImpl(const T& value) : value(value) {}
         AnyImpl(T&& value) : value(std::move(value)) {}
@@ -161,7 +209,7 @@ class RecAny : public BeamInheritance_t<Any_BeamConf<RecAny<Concepts...>>, Conce
     };
 
     template <typename T>
-    struct AnyImpl<T,true> final : T, BeamInheritance_t<AnyImpl_BeamConf<AnyImpl<T>>, Concepts...> {
+    struct AnyImpl<T,true> final : T, BeamInheritance_t<AnyImpl_BeamConf<AnyImpl<T>>, typename Config::AllConcepts> {
         AnyImpl(const T& value) : T(value) {}
         AnyImpl(T&& value) : T(std::move(value)) {}
         const T& get_value() const { return *this; }
@@ -169,7 +217,7 @@ class RecAny : public BeamInheritance_t<Any_BeamConf<RecAny<Concepts...>>, Conce
     };
 
     template <typename T>
-    struct AnyImpl<T&,false> final : BeamInheritance_t<AnyImpl_BeamConf<AnyImpl<T&>>, Concepts...> {
+    struct AnyImpl<T&,false> final : BeamInheritance_t<AnyImpl_BeamConf<AnyImpl<T&>>, typename Config::AllConcepts> {
         T& value;
         AnyImpl(T& value) : value(value) {}
         const T& get_value() const { return value; }
@@ -180,14 +228,14 @@ class RecAny : public BeamInheritance_t<Any_BeamConf<RecAny<Concepts...>>, Conce
 
 public:
 
-    RecAny() = default;
+    BaseAny() = default;
 
     template <typename T>
-    RecAny(T&& t) : impl_ptr(std::make_unique<AnyImpl<std::decay_t<T>>>(std::forward<T>(t)))
+    BaseAny(T&& t) : impl_ptr(std::make_unique<AnyImpl<std::decay_t<T>>>(std::forward<T>(t)))
     {}
 
     template <typename T>
-    RecAny(std::reference_wrapper<T>&& t) : impl_ptr(std::make_unique<AnyImpl<T&>>(t.get()))
+    BaseAny(std::reference_wrapper<T>&& t) : impl_ptr(std::make_unique<AnyImpl<T&>>(t.get()))
     {}
 
     AnyImplBase* get_ptr() {
@@ -204,10 +252,73 @@ public:
 };
 
 template <typename... Concepts>
-class Any : public RecAny<Concepts...> {
-    using RecAny<Concepts...>::RecAny;
-    using RecAny<Concepts...>::get_ptr;
-    using RecAny<Concepts...>::operator bool;
+class Any;
+
+template <typename... Concepts>
+struct ConceptFilter;
+
+template <typename ConceptList, typename BaseList, typename... Concepts>
+struct ConceptFilterImpl;
+
+template <typename... PrevConcepts, typename... PrevBases, typename... Nested, typename... Concepts>
+struct ConceptFilterImpl <TypeList<PrevConcepts...>, TypeList<PrevBases...>, Any<Nested...>, Concepts...> :
+    ConceptFilterImpl<TypeList<PrevConcepts...>, TypeList<PrevBases..., BaseAny<ConceptFilter<Nested...>>>, Concepts...>
+{};
+
+template <typename... PrevConcepts, typename... PrevBases, typename HeadConcept, typename... Concepts>
+struct ConceptFilterImpl <TypeList<PrevConcepts...>, TypeList<PrevBases...>, HeadConcept, Concepts...> :
+    ConceptFilterImpl<TypeList<PrevConcepts..., HeadConcept>, TypeList<PrevBases...>, Concepts...>
+{};
+
+template <typename...>
+struct TypeListCat;
+
+template <typename... Ts>
+using TypeListCat_t = typename TypeListCat<Ts...>::type;
+
+template <typename... As, typename... Bs, typename... Tail>
+struct TypeListCat<TypeList<As...>, TypeList<Bs...>, Tail...> {
+    using type = TypeListCat_t<TypeList<As..., Bs...>, Tail...>;
+};
+
+template <typename T>
+struct TypeListCat<T> {
+    using type = T;
+};
+
+template <>
+struct TypeListCat<> {
+    using type = TypeList<>;
+};
+
+template <typename, typename>
+struct CollapseConcepts;
+
+template <typename Concepts, typename Bases>
+using CollapseConcepts_t = typename CollapseConcepts<Concepts,Bases>::type;
+
+template <typename Concepts, typename... BaseFilters>
+struct CollapseConcepts<Concepts, TypeList<BaseAny<BaseFilters>...>> {
+    using type = TypeListCat_t<Concepts, typename BaseFilters::AllConcepts...>;
+};
+
+template <typename PrevConcepts, typename PrevBases>
+struct ConceptFilterImpl <PrevConcepts, PrevBases> {
+    using Concepts = PrevConcepts;
+    using Bases = PrevBases;
+    using AllConcepts = CollapseConcepts_t<Concepts, Bases>;
+};
+
+/// Filters parameters into a list of concepts and a list of Any bases.
+template <typename... Concepts>
+struct ConceptFilter : ConceptFilterImpl<TypeList<>, TypeList<>, Concepts...> {};
+
+template <typename... Concepts>
+class Any : public BaseAny<ConceptFilter<Concepts...>> {
+    using Base = BaseAny<ConceptFilter<Concepts...>>;
+    using Base::BaseAny;
+    using Base::get_ptr;
+    using Base::operator bool;
 };
 
 }; // namespace _detail

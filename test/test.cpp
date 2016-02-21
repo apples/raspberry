@@ -192,7 +192,7 @@ struct RecAnyTester {
     int func(RecAnyFunc&) { return x; }
 };
 
-TEST_CASE("RecAny can be used for recursive CRTP", "[raspberry]") {
+TEST_CASE("Any can be used for recursive CRTP", "[raspberry]") {
     RecAnyFunc rat = RecAnyTester{7};
     REQUIRE(rat.func(rat) == 7);
 
@@ -214,8 +214,21 @@ struct RecAnyValueTester {
     int func(RecAnyFuncValue) { return x; }
 };
 
-TEST_CASE("RecAny concepts can accept RecAny value types", "[raspberry]") {
+TEST_CASE("Recursive Any concepts can accept Any value types", "[raspberry]") {
     RecAnyFuncValue rat1 = RecAnyValueTester{7};
     RecAnyFuncValue rat2 = RecAnyValueTester{42};
     REQUIRE(rat1.func(std::move(rat2)) == 7);
 };
+
+using AnyFuncBase = raspberry::Any<FuncConcept<int()const>>;
+
+using AnySquareBase = raspberry::Any<SquareConcept<float(float)>>;
+
+using AnyFuncSquare = raspberry::Any<AnyFuncBase,AnySquareBase>;
+
+TEST_CASE("Anys can be used as a base concepts", "[raspberry]") {
+    AnyFuncSquare f = SomeFunc{};
+
+    REQUIRE(f.func() == 42);
+    REQUIRE(f.square(12) == 144);
+}
