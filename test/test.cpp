@@ -232,3 +232,20 @@ TEST_CASE("Anys can be used as a base concepts", "[raspberry]") {
     REQUIRE(f.func() == 42);
     REQUIRE(f.square(12) == 144);
 }
+
+TEST_CASE("Derived Anys can be upcast to base Anys", "[raspberry]") {
+    AnyFuncSquare f = SomeFunc{};
+    AnyFuncBase f2 = std::move(f);
+
+    REQUIRE(f2.func() == 42);
+}
+
+using AnyFunc1 = raspberry::Any<FuncConcept<int()const>>;
+using AnyFunc2 = raspberry::Any<FuncConcept<int()const>, SquareConcept<float(float)>>;
+
+TEST_CASE("Conversion between unrelated Anys is possible", "[raspberry]") {
+    AnyFunc2 f1 = SomeFunc{};
+    AnyFunc1 f2 = std::move(f1);
+
+    REQUIRE(f2.func() == 42);
+}

@@ -84,6 +84,14 @@ namespace raspberry {
 
 namespace _detail {
 
+// Forward declarations.
+
+template <typename Config>
+class BaseAny;
+
+template <typename... Concepts>
+class Any;
+
 /// A simple list of types.
 template <typename...>
 struct TypeList {};
@@ -144,9 +152,6 @@ struct InheritAll<Config, TypeList<Ts...>> {
     struct type : Config::template Base<Ts>... {};
 };
 
-template <typename Config>
-class BaseAny;
-
 template <typename Any>
 struct GetConfig;
 
@@ -170,6 +175,15 @@ struct Any_BeamConf {
     using Link = typename Concept::template NonVirtual<Any,Next,FindOverloadOrVoid_t<Concept,TailConcepts...>>;
 };
 
+/// Tags used for BaseAny constructor dispatching.
+struct Tags {
+    using Default = struct{};
+    using Reference = struct{};
+    using Derived = struct{};
+    using Unrelated = struct{};
+};
+
+/// The backbone of Any.
 template <typename Config>
 class BaseAny : public BeamInheritance_t<Any_BeamConf<BaseAny<Config>>, typename Config::Concepts> {
     template <typename>
@@ -224,18 +238,58 @@ class BaseAny : public BeamInheritance_t<Any_BeamConf<BaseAny<Config>>, typename
         T& get_value() { return value; }
     };
 
+    template <typename>
+    struct GetTag {
+        using type = Tags::Default;
+    };
+
+    /// Selects the appropriate tag for constructor dispatching.
+    template <typename T>
+    using GetTag_t = typename GetTag<std::decay_t<T>>::type;
+
+    template <typename T>
+    struct GetTag<std::reference_wrapper<T>> {
+        using type = Tags::Reference;
+    };
+
+    template <typename... Ts>
+    struct GetTag<Any<Ts...>> {
+        using type = std::conditional_t<std::is_base_of<AnyImplBase, typename Any<Ts...>::AnyImplBase>::value, Tags::Derived, Tags::Unrelated>;
+    };
+
     std::unique_ptr<AnyImplBase> impl_ptr;
 
 public:
 
     BaseAny() = default;
 
+    /// Dispatcher.
     template <typename T>
-    BaseAny(T&& t) : impl_ptr(std::make_unique<AnyImpl<std::decay_t<T>>>(std::forward<T>(t)))
+    BaseAny(T&& t) : BaseAny(std::forward<T>(t), GetTag_t<T>{})
     {}
 
+    /// Default behavior for storing most types.
     template <typename T>
-    BaseAny(std::reference_wrapper<T>&& t) : impl_ptr(std::make_unique<AnyImpl<T&>>(t.get()))
+    BaseAny(T&& t, Tags::Default) : impl_ptr(std::make_unique<AnyImpl<std::decay_t<T>>>(std::forward<T>(t)))
+    {}
+
+    /// Stores a reference instead of a value.
+    /// Use with caution; this Any must not outlive the given reference.
+    template <typename T>
+    BaseAny(const std::reference_wrapper<T>& t, Tags::Reference) : impl_ptr(std::make_unique<AnyImpl<T&>>(t.get()))
+    {}
+
+    /// Derived to base Any upcast.
+    /// This is equivalent to a static_cast, no allocation is used.
+    template <typename T>
+    BaseAny(T&& t, Tags::Derived) : impl_ptr(std::forward<T>(t).impl_ptr)
+    {}
+
+    /// Stores an unrelated Any as if it were a normal type.
+    /// Guarantees dynamic allocation, consider using Any inheritance instead.
+    template <typename T>
+    [[deprecated("Conversion between unrelated Anys causes unnecessary dynamic allocation.")]]
+    BaseAny(T&& t, Tags::Unrelated) : BaseAny(std::forward<T>(t), Tags::Default{})
     {}
 
     AnyImplBase* get_ptr() {
@@ -250,9 +304,6 @@ public:
         return bool(impl_ptr);
     }
 };
-
-template <typename... Concepts>
-class Any;
 
 template <typename... Concepts>
 struct ConceptFilter;
