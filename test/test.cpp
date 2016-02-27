@@ -249,3 +249,39 @@ TEST_CASE("Conversion between unrelated Anys is possible", "[raspberry]") {
 
     REQUIRE(f2.func() == 42);
 }
+
+using AnyFuncAllOverloads = raspberry::Any<
+    FuncConcept<int()>,
+    FuncConcept<int()const>
+>;
+
+using AnyFuncAllRefOverloads = raspberry::Any<
+    FuncConcept<int()&>,
+    FuncConcept<int()const&>,
+    FuncConcept<int()&&>,
+    FuncConcept<int()const&&>
+>;
+
+struct FuncAllOverloadsTest {
+    int func() { return 1; }
+    int func() const { return 2; }
+};
+
+struct FuncAllRefOverloadsTest {
+    int func() & { return 3; }
+    int func() const & { return 4; }
+    int func() && { return 5; }
+    int func() const && { return 6; }
+};
+
+TEST_CASE("Concepts support all forms of overloading", "[raspberry]") {
+    AnyFuncAllOverloads afao = FuncAllOverloadsTest{};
+    AnyFuncAllRefOverloads afaro = FuncAllRefOverloadsTest{};
+
+    REQUIRE(static_cast<AnyFuncAllOverloads&>(afao).func() == 1);
+    REQUIRE(static_cast<const AnyFuncAllOverloads&>(afao).func() == 2);
+    REQUIRE(static_cast<AnyFuncAllRefOverloads&>(afaro).func() == 3);
+    REQUIRE(static_cast<const AnyFuncAllRefOverloads&>(afaro).func() == 4);
+    REQUIRE(static_cast<AnyFuncAllRefOverloads&&>(afaro).func() == 5);
+    REQUIRE(static_cast<const AnyFuncAllRefOverloads&&>(afaro).func() == 6);
+};

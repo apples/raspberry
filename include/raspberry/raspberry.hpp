@@ -4,81 +4,65 @@
 #include <memory>
 #include <utility>
 
-#define RASPBERRY_DECL_METHOD(ConceptName, FuncName) \
-template <typename Func> \
-struct ConceptName; \
+#define RASPBERRY_DETAIL_QUALIFIED_METHOD(ConceptName, FuncName, CVQualifier, RefQualifier) \
 template <typename R, typename... Args> \
-struct ConceptName<R(Args...)> { \
+struct ConceptName<R(Args...) CVQualifier RefQualifier> { \
 private: \
     template <typename> \
     friend class raspberry::_detail::BaseAny; \
     template <typename> \
     friend class raspberry::_detail::Any_BeamConf; \
+    template <typename> \
+    friend class raspberry::_detail::AnyImplBase_BeamConf; \
     template <typename Next, typename Ancestor> \
     struct Virtual : Next { \
         using Next::FuncName; \
-        virtual R FuncName(Args...) = 0; \
+        virtual R FuncName(Args...) CVQualifier RefQualifier = 0; \
     }; \
     template <typename Next> \
     struct Virtual<Next,void> : Next { \
-        virtual R FuncName(Args...) = 0; \
+        virtual R FuncName(Args...) CVQualifier RefQualifier = 0; \
     }; \
     template <typename Impl, typename Base> \
     struct VirtualImpl : Base { \
-        virtual R FuncName(Args... args) override final { \
-            return static_cast<Impl&>(*this).get_value().FuncName(std::forward<Args>(args)...); \
+        virtual R FuncName(Args... args) CVQualifier RefQualifier override final { \
+            using Value = typename Impl::value_type; \
+            using QValue = raspberry::_detail::MakeRef_t<CVQualifier Value RefQualifier>; \
+            const auto& self = static_cast<const Impl&>(*this); \
+            const auto& value = self.get_value(); \
+            return const_cast<QValue>(value).FuncName(std::forward<Args>(args)...); \
         } \
     }; \
-    template <typename Impl, typename Next, typename Ancestor> \
+    template <typename Impl, typename Base, typename Next, typename Ancestor> \
     struct NonVirtual : Next { \
         using Next::FuncName; \
-        R FuncName(Args... args) { \
-            return static_cast<Impl&>(*this).get_ptr()->FuncName(std::forward<Args>(args)...); \
+        R FuncName(Args... args) CVQualifier RefQualifier { \
+            using QBase = raspberry::_detail::MakeRef_t<CVQualifier Base RefQualifier>; \
+            const auto& self = static_cast<const Impl&>(*this); \
+            const auto& base = *self.get_ptr(); \
+            return const_cast<QBase>(base).FuncName(std::forward<Args>(args)...); \
         } \
     }; \
-    template <typename Impl, typename Next> \
-    struct NonVirtual<Impl,Next,void> : Next { \
-        R FuncName(Args... args) { \
-            return static_cast<Impl&>(*this).get_ptr()->FuncName(std::forward<Args>(args)...); \
-        } \
-    }; \
-};\
-template <typename R, typename... Args> \
-struct ConceptName<R(Args...)const> { \
-private: \
-    template <typename> \
-    friend class raspberry::_detail::BaseAny; \
-    template <typename> \
-    friend class raspberry::_detail::Any_BeamConf; \
-    template <typename Next, typename Ancestor> \
-    struct Virtual : Next { \
-        using Next::FuncName; \
-        virtual R FuncName(Args...) const = 0; \
-    }; \
-    template <typename Next> \
-    struct Virtual<Next,void> : Next { \
-        virtual R FuncName(Args...) const = 0; \
-    }; \
-    template <typename Impl, typename Base> \
-    struct VirtualImpl : Base { \
-        virtual R FuncName(Args... args) const override final { \
-            return static_cast<const Impl&>(*this).get_value().FuncName(std::forward<Args>(args)...); \
-        } \
-    }; \
-    template <typename Impl, typename Next, typename Ancestor> \
-    struct NonVirtual : Next { \
-        using Next::FuncName; \
-        R FuncName(Args... args) const { \
-            return static_cast<const Impl&>(*this).get_ptr()->FuncName(std::forward<Args>(args)...); \
-        } \
-    }; \
-    template <typename Impl, typename Next> \
-    struct NonVirtual<Impl,Next,void> : Next { \
-        R FuncName(Args... args) const { \
-            return static_cast<const Impl&>(*this).get_ptr()->FuncName(std::forward<Args>(args)...); \
+    template <typename Impl, typename Base, typename Next> \
+    struct NonVirtual<Impl,Base,Next,void> : Next { \
+        R FuncName(Args... args) CVQualifier RefQualifier { \
+            using QBase = raspberry::_detail::MakeRef_t<CVQualifier Base RefQualifier>; \
+            const auto& self = static_cast<const Impl&>(*this); \
+            const auto& base = *self.get_ptr(); \
+            return const_cast<QBase>(base).FuncName(std::forward<Args>(args)...); \
         } \
     }; \
 }
+
+#define RASPBERRY_DECL_METHOD(ConceptName, FuncName) \
+template <typename Func> \
+struct ConceptName; \
+RASPBERRY_DETAIL_QUALIFIED_METHOD(ConceptName, FuncName, , ); \
+RASPBERRY_DETAIL_QUALIFIED_METHOD(ConceptName, FuncName, , &); \
+RASPBERRY_DETAIL_QUALIFIED_METHOD(ConceptName, FuncName, , &&); \
+RASPBERRY_DETAIL_QUALIFIED_METHOD(ConceptName, FuncName, const, ); \
+RASPBERRY_DETAIL_QUALIFIED_METHOD(ConceptName, FuncName, const, &); \
+RASPBERRY_DETAIL_QUALIFIED_METHOD(ConceptName, FuncName, const, &&)
 
 namespace raspberry {
 
@@ -95,6 +79,20 @@ class Any;
 /// A simple list of types.
 template <typename...>
 struct TypeList {};
+
+template <typename T>
+struct MakeRef {
+    using type = T&;
+};
+
+/// Given T with underlying type U, maps { U -> U&, U& -> U&, U&& -> U&& }.
+template <typename T>
+using MakeRef_t = typename MakeRef<T>::type;
+
+template <typename T>
+struct MakeRef<T&&> {
+    using type = T&&;
+};
 
 template<typename, typename, typename>
 struct BeamInheritance;
@@ -164,15 +162,35 @@ struct GetConfig<BaseAny<Config>> {
     using type = Config;
 };
 
+template <typename Config>
+struct AnyImplBase_BeamConf {
+    struct BaseConfig {
+        template <typename Any>
+        using Base = typename Any::AnyImplBase;
+    };
+    using Base = InheritAll_t<BaseConfig, typename Config::Bases>;
+    template <typename Concept, typename Next, typename... TailConcepts>
+    using Link = typename Concept::template Virtual<Next,FindOverloadOrVoid_t<Concept,TailConcepts...>>;
+};
+
+template <typename Config>
+struct AnyImplBase : BeamInheritance_t<AnyImplBase_BeamConf<Config>, typename Config::Concepts> {
+    virtual ~AnyImplBase() = default;
+};
+
 template <typename Any>
-struct Any_BeamConf {
+struct Any_BeamConf;
+
+template <typename Config>
+struct Any_BeamConf<BaseAny<Config>> {
     struct BaseConfig {
         template <typename SuperAny>
         using Base = BeamInheritance_t<Any_BeamConf, typename GetConfig_t<SuperAny>::Concepts, Any_BeamConf<SuperAny>>;
     };
+    using Any = BaseAny<Config>;
     using Base = InheritAll_t<BaseConfig, typename GetConfig_t<Any>::Bases>;
     template <typename Concept, typename Next, typename... TailConcepts>
-    using Link = typename Concept::template NonVirtual<Any,Next,FindOverloadOrVoid_t<Concept,TailConcepts...>>;
+    using Link = typename Concept::template NonVirtual<Any,AnyImplBase<Config>,Next,FindOverloadOrVoid_t<Concept,TailConcepts...>>;
 };
 
 /// Tags used for BaseAny constructor dispatching.
@@ -189,19 +207,10 @@ class BaseAny : public BeamInheritance_t<Any_BeamConf<BaseAny<Config>>, typename
     template <typename>
     friend class BaseAny;
 
-    struct AnyImplBase_BeamConf {
-        struct BaseConfig {
-            template <typename Any>
-            using Base = typename Any::AnyImplBase;
-        };
-        using Base = InheritAll_t<BaseConfig, typename Config::Bases>;
-        template <typename Concept, typename Next, typename... TailConcepts>
-        using Link = typename Concept::template Virtual<Next,FindOverloadOrVoid_t<Concept,TailConcepts...>>;
-    };
+    template <typename>
+    friend struct AnyImplBase_BeamConf;
 
-    struct AnyImplBase : BeamInheritance_t<AnyImplBase_BeamConf, typename Config::Concepts> {
-        virtual ~AnyImplBase() = default;
-    };
+    using AnyImplBase = AnyImplBase<Config>;
 
     template <typename AnyImpl>
     struct AnyImpl_BeamConf {
@@ -215,27 +224,27 @@ class BaseAny : public BeamInheritance_t<Any_BeamConf<BaseAny<Config>>, typename
 
     template <typename T>
     struct AnyImpl<T,false> final : BeamInheritance_t<AnyImpl_BeamConf<AnyImpl<T>>, typename Config::AllConcepts> {
-        T value;
-        AnyImpl(const T& value) : value(value) {}
-        AnyImpl(T&& value) : value(std::move(value)) {}
-        const T& get_value() const { return value; }
-        T& get_value() { return value; }
+        using value_type = T;
+        value_type value;
+        AnyImpl(const value_type& value) : value(value) {}
+        AnyImpl(value_type&& value) : value(std::move(value)) {}
+        const value_type& get_value() const { return value; }
     };
 
     template <typename T>
     struct AnyImpl<T,true> final : T, BeamInheritance_t<AnyImpl_BeamConf<AnyImpl<T>>, typename Config::AllConcepts> {
-        AnyImpl(const T& value) : T(value) {}
-        AnyImpl(T&& value) : T(std::move(value)) {}
-        const T& get_value() const { return *this; }
-        T& get_value() { return *this; }
+        using value_type = T;
+        AnyImpl(const value_type& value) : T(value) {}
+        AnyImpl(value_type&& value) : T(std::move(value)) {}
+        const value_type& get_value() const { return *this; }
     };
 
     template <typename T>
     struct AnyImpl<T&,false> final : BeamInheritance_t<AnyImpl_BeamConf<AnyImpl<T&>>, typename Config::AllConcepts> {
-        T& value;
-        AnyImpl(T& value) : value(value) {}
-        const T& get_value() const { return value; }
-        T& get_value() { return value; }
+        using value_type = T;
+        value_type& value;
+        AnyImpl(value_type& value) : value(value) {}
+        const value_type& get_value() const { return value; }
     };
 
     template <typename>
@@ -291,10 +300,6 @@ public:
     [[deprecated("Conversion between unrelated Anys causes unnecessary dynamic allocation.")]]
     BaseAny(T&& t, Tags::Unrelated) : BaseAny(std::forward<T>(t), Tags::Default{})
     {}
-
-    AnyImplBase* get_ptr() {
-        return impl_ptr.get();
-    }
 
     const AnyImplBase* get_ptr() const {
         return impl_ptr.get();
