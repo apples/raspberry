@@ -4,6 +4,7 @@
 #include <memory>
 #include <utility>
 
+/// Implementation detail for RASPBERRY_DECL_METHOD. Unstable.
 #define RASPBERRY_DETAIL_QUALIFIED_METHOD(ConceptName, FuncName, CVQualifier, RefQualifier) \
 template <typename R, typename... Args> \
 struct ConceptName<R(Args...) CVQualifier RefQualifier> { \
@@ -54,6 +55,7 @@ private: \
     }; \
 }
 
+/// Declares a concept named ConceptName that implements the FuncName method.
 #define RASPBERRY_DECL_METHOD(ConceptName, FuncName) \
 template <typename Func> \
 struct ConceptName; \
@@ -219,9 +221,11 @@ class BaseAny : public BeamInheritance_t<Any_BeamConf<BaseAny<Config>>, typename
         using Link = typename Concept::template VirtualImpl<AnyImpl, Next>;
     };
 
+    /// Implementation that contains a value.
     template <typename T, bool B = std::is_empty<T>::value>
     struct AnyImpl;
 
+    /// Specialization that contains a value type.
     template <typename T>
     struct AnyImpl<T,false> final : BeamInheritance_t<AnyImpl_BeamConf<AnyImpl<T>>, typename Config::AllConcepts> {
         using value_type = T;
@@ -231,6 +235,8 @@ class BaseAny : public BeamInheritance_t<Any_BeamConf<BaseAny<Config>>, typename
         const value_type& get_value() const { return value; }
     };
 
+    /// Specialization that contains an empty value type.
+    /// Might cause problems? Needs more testing.
     template <typename T>
     struct AnyImpl<T,true> final : T, BeamInheritance_t<AnyImpl_BeamConf<AnyImpl<T>>, typename Config::AllConcepts> {
         using value_type = T;
@@ -239,6 +245,8 @@ class BaseAny : public BeamInheritance_t<Any_BeamConf<BaseAny<Config>>, typename
         const value_type& get_value() const { return *this; }
     };
 
+    /// Specialization that contains a reference.
+    /// Must not outlive the referred-to object.
     template <typename T>
     struct AnyImpl<T&,false> final : BeamInheritance_t<AnyImpl_BeamConf<AnyImpl<T&>>, typename Config::AllConcepts> {
         using value_type = T;
@@ -266,6 +274,7 @@ class BaseAny : public BeamInheritance_t<Any_BeamConf<BaseAny<Config>>, typename
         using type = std::conditional_t<std::is_base_of<AnyImplBase, typename Any<Ts...>::AnyImplBase>::value, Tags::Derived, Tags::Unrelated>;
     };
 
+    /// Pointer to implementation.
     std::unique_ptr<AnyImplBase> impl_ptr;
 
 public:
@@ -295,16 +304,18 @@ public:
     {}
 
     /// Stores an unrelated Any as if it were a normal type.
-    /// Guarantees dynamic allocation, consider using Any inheritance instead.
+    /// Guarantees dynamic allocation; consider using Any concept inheritance instead.
     template <typename T>
     [[deprecated("Conversion between unrelated Anys causes unnecessary dynamic allocation.")]]
     BaseAny(T&& t, Tags::Unrelated) : BaseAny(std::forward<T>(t), Tags::Default{})
     {}
 
+    /// Gets a pointer to the implementation.
     const AnyImplBase* get_ptr() const {
         return impl_ptr.get();
     }
 
+    /// Checks if this Any contains an object.
     explicit operator bool() const {
         return bool(impl_ptr);
     }
@@ -329,6 +340,7 @@ struct ConceptFilterImpl <TypeList<PrevConcepts...>, TypeList<PrevBases...>, Hea
 template <typename...>
 struct TypeListCat;
 
+/// Concatenates any number of TypeLists into a single TypeList.
 template <typename... Ts>
 using TypeListCat_t = typename TypeListCat<Ts...>::type;
 
@@ -350,6 +362,8 @@ struct TypeListCat<> {
 template <typename, typename>
 struct CollapseConcepts;
 
+/// Recursively unwraps Bases into their concepts and returns a flat list of all the concepts, including Concepts.
+/// Example: `CollapseConcepts_t<{C0, C4}, {Any<C1>, Any<Any<C2>,C3>}> => {C0, C4, C1, C2, C3}`
 template <typename Concepts, typename Bases>
 using CollapseConcepts_t = typename CollapseConcepts<Concepts,Bases>::type;
 
@@ -369,11 +383,12 @@ struct ConceptFilterImpl <PrevConcepts, PrevBases> {
 template <typename... Concepts>
 struct ConceptFilter : ConceptFilterImpl<TypeList<>, TypeList<>, Concepts...> {};
 
+/// Erasure container.
+/// All-natural replacement for inheritance.
 template <typename... Concepts>
 class Any : public BaseAny<ConceptFilter<Concepts...>> {
     using Base = BaseAny<ConceptFilter<Concepts...>>;
     using Base::BaseAny;
-    using Base::get_ptr;
     using Base::operator bool;
 };
 
