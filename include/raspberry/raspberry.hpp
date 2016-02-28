@@ -34,22 +34,24 @@ private: \
             return const_cast<QValue>(value).FuncName(std::forward<Args>(args)...); \
         } \
     }; \
-    template <typename Impl, typename Base, typename Next, typename Ancestor> \
+    template <typename Impl, typename Next, typename Ancestor> \
     struct NonVirtual : Next { \
         using Next::FuncName; \
         R FuncName(Args... args) CVQualifier RefQualifier { \
+            using Base = raspberry::_detail::AnyImplBase<raspberry::_detail::GetConfig_t<Impl>>; \
             using QBase = raspberry::_detail::MakeRef_t<CVQualifier Base RefQualifier>; \
-            const auto& self = static_cast<const Impl&>(*this); \
-            const auto& base = *self.get_ptr(); \
+            auto& self = static_cast<const Impl&>(*this); \
+            auto& base = self._raspberry_get_impl(); \
             return const_cast<QBase>(base).FuncName(std::forward<Args>(args)...); \
         } \
     }; \
-    template <typename Impl, typename Base, typename Next> \
-    struct NonVirtual<Impl,Base,Next,void> : Next { \
+    template <typename Impl, typename Next> \
+    struct NonVirtual<Impl,Next,void> : Next { \
         R FuncName(Args... args) CVQualifier RefQualifier { \
+            using Base = raspberry::_detail::AnyImplBase<raspberry::_detail::GetConfig_t<Impl>>; \
             using QBase = raspberry::_detail::MakeRef_t<CVQualifier Base RefQualifier>; \
             const auto& self = static_cast<const Impl&>(*this); \
-            const auto& base = *self.get_ptr(); \
+            const auto& base = self._raspberry_get_impl(); \
             return const_cast<QBase>(base).FuncName(std::forward<Args>(args)...); \
         } \
     }; \
@@ -70,17 +72,15 @@ namespace raspberry {
 
 namespace _detail {
 
-// Forward declarations.
-
-template <typename Config>
-class BaseAny;
-
-template <typename... Concepts>
-class Any;
-
 /// A simple list of types.
 template <typename...>
 struct TypeList {};
+
+// Forward declarations.
+template <typename Config>
+class BaseAny;
+template <typename... Concepts>
+class Any;
 
 template <typename T>
 struct MakeRef {
@@ -177,8 +177,11 @@ struct AnyImplBase_BeamConf {
 
 template <typename Config>
 struct AnyImplBase : BeamInheritance_t<AnyImplBase_BeamConf<Config>, typename Config::Concepts> {
-    virtual ~AnyImplBase() = default;
+    virtual ~AnyImplBase() = 0;
 };
+
+template <typename Config>
+inline AnyImplBase<Config>::~AnyImplBase() {}
 
 template <typename Any>
 struct Any_BeamConf;
@@ -192,7 +195,7 @@ struct Any_BeamConf<BaseAny<Config>> {
     using Any = BaseAny<Config>;
     using Base = InheritAll_t<BaseConfig, typename GetConfig_t<Any>::Bases>;
     template <typename Concept, typename Next, typename... TailConcepts>
-    using Link = typename Concept::template NonVirtual<Any,AnyImplBase<Config>,Next,FindOverloadOrVoid_t<Concept,TailConcepts...>>;
+    using Link = typename Concept::template NonVirtual<Any,Next,FindOverloadOrVoid_t<Concept,TailConcepts...>>;
 };
 
 /// Tags used for BaseAny constructor dispatching.
@@ -275,11 +278,11 @@ class BaseAny : public BeamInheritance_t<Any_BeamConf<BaseAny<Config>>, typename
     };
 
     /// Pointer to implementation.
-    std::unique_ptr<AnyImplBase> impl_ptr;
+    std::unique_ptr<AnyImplBase> _raspberry_impl_ptr;
 
 public:
-
-    BaseAny() = default;
+    /// Any must never be empty.
+    BaseAny() = delete;
 
     /// Dispatcher.
     template <typename T>
@@ -288,19 +291,19 @@ public:
 
     /// Default behavior for storing most types.
     template <typename T>
-    BaseAny(T&& t, Tags::Default) : impl_ptr(std::make_unique<AnyImpl<std::decay_t<T>>>(std::forward<T>(t)))
+    BaseAny(T&& t, Tags::Default) : _raspberry_impl_ptr(std::make_unique<AnyImpl<std::decay_t<T>>>(std::forward<T>(t)))
     {}
 
     /// Stores a reference instead of a value.
     /// Use with caution; this Any must not outlive the given reference.
     template <typename T>
-    BaseAny(const std::reference_wrapper<T>& t, Tags::Reference) : impl_ptr(std::make_unique<AnyImpl<T&>>(t.get()))
+    BaseAny(const std::reference_wrapper<T>& t, Tags::Reference) : _raspberry_impl_ptr(std::make_unique<AnyImpl<T&>>(t.get()))
     {}
 
     /// Derived to base Any upcast.
     /// This is equivalent to a static_cast, no allocation is used.
     template <typename T>
-    BaseAny(T&& t, Tags::Derived) : impl_ptr(std::forward<T>(t).impl_ptr)
+    BaseAny(T&& t, Tags::Derived) : _raspberry_impl_ptr(std::forward<T>(t)._raspberry_impl_ptr)
     {}
 
     /// Stores an unrelated Any as if it were a normal type.
@@ -311,13 +314,8 @@ public:
     {}
 
     /// Gets a pointer to the implementation.
-    const AnyImplBase* get_ptr() const {
-        return impl_ptr.get();
-    }
-
-    /// Checks if this Any contains an object.
-    explicit operator bool() const {
-        return bool(impl_ptr);
+    const AnyImplBase& _raspberry_get_impl() const {
+        return *_raspberry_impl_ptr;
     }
 };
 
@@ -388,8 +386,8 @@ struct ConceptFilter : ConceptFilterImpl<TypeList<>, TypeList<>, Concepts...> {}
 template <typename... Concepts>
 class Any : public BaseAny<ConceptFilter<Concepts...>> {
     using Base = BaseAny<ConceptFilter<Concepts...>>;
+public:
     using Base::BaseAny;
-    using Base::operator bool;
 };
 
 }; // namespace _detail
