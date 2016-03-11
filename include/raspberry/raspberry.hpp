@@ -280,6 +280,34 @@ namespace anyimpl {
         const value_type& get_value() const { return value; }
     };
 
+    /// Specialized implementation that contains a pointer.
+    /// Must not outlive the pointed-to object.
+    template <typename T, typename Config>
+    struct AnyImpl<T*,Config> final : BeamInheritance_t<AnyImpl_BeamConf<AnyImpl<T*,Config>>, typename Config::AllConcepts> {
+        using value_type = T;
+        value_type* value;
+        AnyImpl(value_type* value) : value(value) {}
+        const value_type& get_value() const { return *value; }
+    };
+
+    /// Specialized implementation that contains a std::unique_pointer.
+    template <typename T, typename Config>
+    struct AnyImpl<std::unique_ptr<T>,Config> final : BeamInheritance_t<AnyImpl_BeamConf<AnyImpl<std::unique_ptr<T>,Config>>, typename Config::AllConcepts> {
+        using value_type = T;
+        std::unique_ptr<T> value;
+        AnyImpl(std::unique_ptr<T> value) : value(std::move(value)) {}
+        const value_type& get_value() const { return *value; }
+    };
+
+    /// Specialized implementation that contains a std::shared_pointer.
+    template <typename T, typename Config>
+    struct AnyImpl<std::shared_ptr<T>,Config> final : BeamInheritance_t<AnyImpl_BeamConf<AnyImpl<std::shared_ptr<T>,Config>>, typename Config::AllConcepts> {
+        using value_type = T;
+        std::shared_ptr<T> value;
+        AnyImpl(std::shared_ptr<T> value) : value(std::move(value)) {}
+        const value_type& get_value() const { return *value; }
+    };
+
 } // namespace anyimpl
 
 using anyimpl::AnyImpl;
@@ -290,6 +318,7 @@ struct Tags {
     using Reference = struct{};
     using Derived = struct{};
     using Unrelated = struct{};
+    using Pointer = struct{};
 };
 
 namespace get_tag {
@@ -311,6 +340,21 @@ namespace get_tag {
     template <typename... Ts, typename Config>
     struct GetTag<Any<Ts...>, Config> {
         using type = std::conditional_t<std::is_base_of<AnyImplBase<Config>, typename Any<Ts...>::_raspberry_impl_base>::value, Tags::Derived, Tags::Unrelated>;
+    };
+
+    template <typename T, typename Config>
+    struct GetTag<T*, Config> {
+        using type = Tags::Pointer;
+    };
+
+    template <typename T, typename Config>
+    struct GetTag<std::unique_ptr<T>, Config> {
+        using type = Tags::Pointer;
+    };
+
+    template <typename T, typename Config>
+    struct GetTag<std::shared_ptr<T>, Config> {
+        using type = Tags::Pointer;
     };
 
 } // namespace get_tag
@@ -374,6 +418,12 @@ public:
     template <typename T>
     [[deprecated("Conversion between unrelated Anys causes unnecessary dynamic allocation.")]]
     BaseAny(T&& t, Tags::Unrelated) : BaseAny(std::forward<T>(t), Tags::Default{})
+    {}
+
+    /// Stores a pointer instead of a value.
+    /// \note Raw pointers will not be deleted, and cannot be retrieved.
+    template <typename T>
+    BaseAny(T&& t, Tags::Pointer) : BaseAny(std::forward<T>(t), Tags::Default{})
     {}
 
     /// Gets a pointer to the implementation.

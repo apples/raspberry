@@ -285,3 +285,37 @@ TEST_CASE("Concepts support all forms of overloading", "[raspberry]") {
     REQUIRE(static_cast<AnyFuncAllRefOverloads&&>(afaro).func() == 5);
     REQUIRE(static_cast<const AnyFuncAllRefOverloads&&>(afaro).func() == 6);
 };
+
+TEST_CASE("Pointers are captured by value and dereferenced", "[raspberry]") {
+    RefDetector rd;
+    REQUIRE(rd.value == 0);
+
+    AnyRefDetector ard = &rd;
+    REQUIRE(rd.value == 0);
+
+    ard.ref_detect(42);
+    REQUIRE(rd.value == 42);
+}
+
+TEST_CASE("std::unique_ptr is captured by value and dereferenced", "[raspberry]") {
+    auto rdp = std::make_unique<RefDetector>();
+    auto* rd = rdp.get();
+    REQUIRE(rd->value == 0);
+
+    AnyRefDetector ard = std::move(rdp);
+    REQUIRE(rd->value == 0);
+
+    ard.ref_detect(42);
+    REQUIRE(rd->value == 42);
+}
+
+TEST_CASE("std::shared_ptr is captured by value and dereferenced", "[raspberry]") {
+    auto rd = std::make_shared<RefDetector>();
+    REQUIRE(rd->value == 0);
+
+    AnyRefDetector ard = rd;
+    REQUIRE(rd->value == 0);
+
+    ard.ref_detect(42);
+    REQUIRE(rd->value == 42);
+}
